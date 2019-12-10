@@ -59,7 +59,7 @@ type service interface {
 	Errors() []FileError
 	WatchError() error
 	ForceRescan(file protocol.FileInfo) error
-	GetStatistics() stats.FolderStatistics
+	GetStatistics() (stats.FolderStatistics, error)
 
 	getState() (folderState, time.Time, error)
 }
@@ -108,8 +108,8 @@ type Model interface {
 
 	Completion(device protocol.DeviceID, folder string) FolderCompletion
 	ConnectionStats() map[string]interface{}
-	DeviceStatistics() map[string]stats.DeviceStatistics
-	FolderStatistics() map[string]stats.FolderStatistics
+	DeviceStatistics() (map[string]stats.DeviceStatistics, error)
+	FolderStatistics() (map[string]stats.FolderStatistics, error)
 	UsageReportingStats(version int, preview bool) map[string]interface{}
 
 	StartDeadlockDetector(timeout time.Duration)
@@ -217,7 +217,6 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 	}
 	m.Add(m.progressEmitter)
 	scanLimiter.setCapacity(cfg.Options().MaxConcurrentScans)
-	cfg.Subscribe(m)
 
 	return m
 }
@@ -241,9 +240,11 @@ func (m *model) onServe() {
 		}
 		m.newFolder(folderCfg)
 	}
+	m.cfg.Subscribe(m)
 }
 
 func (m *model) Stop() {
+	m.cfg.Unsubscribe(m)
 	m.Supervisor.Stop()
 	devs := m.cfg.Devices()
 	ids := make([]protocol.DeviceID, 0, len(devs))
@@ -706,25 +707,33 @@ func (m *model) ConnectionStats() map[string]interface{} {
 }
 
 // DeviceStatistics returns statistics about each device
-func (m *model) DeviceStatistics() map[string]stats.DeviceStatistics {
+func (m *model) DeviceStatistics() (map[string]stats.DeviceStatistics, error) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	res := make(map[string]stats.DeviceStatistics, len(m.deviceStatRefs))
 	for id, sr := range m.deviceStatRefs {
-		res[id.String()] = sr.GetStatistics()
+		stats, err := sr.GetStatistics()
+		if err != nil {
+			return nil, err
+		}
+		res[id.String()] = stats
 	}
-	return res
+	return res, nil
 }
 
 // FolderStatistics returns statistics about each folder
-func (m *model) FolderStatistics() map[string]stats.FolderStatistics {
+func (m *model) FolderStatistics() (map[string]stats.FolderStatistics, error) {
 	res := make(map[string]stats.FolderStatistics)
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	for id, runner := range m.folderRunners {
-		res[id] = runner.GetStatistics()
+		stats, err := runner.GetStatistics()
+		if err != nil {
+			return nil, err
+		}
+		res[id] = stats
 	}
-	return res
+	return res, nil
 }
 
 type FolderCompletion struct {
@@ -1030,17 +1039,17 @@ func (m *model) RemoteNeedFolderFiles(device protocol.DeviceID, folder string, p
 
 // Index is called when a new device is connected and we receive their full index.
 // Implements the protocol.Model interface.
-func (m *model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo) {
-	m.handleIndex(deviceID, folder, fs, false)
+func (m *model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo) error {
+	return m.handleIndex(deviceID, folder, fs, false)
 }
 
 // IndexUpdate is called for incremental updates to connected devices' indexes.
 // Implements the protocol.Model interface.
-func (m *model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo) {
-	m.handleIndex(deviceID, folder, fs, true)
+func (m *model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo) error {
+	return m.handleIndex(deviceID, folder, fs, true)
 }
 
-func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo, update bool) {
+func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo, update bool) error {
 	op := "Index"
 	if update {
 		op += " update"
@@ -1050,10 +1059,10 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 
 	if cfg, ok := m.cfg.Folder(folder); !ok || !cfg.SharedWith(deviceID) {
 		l.Infof("%v for unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", op, folder, deviceID)
-		return
+		return errors.Wrap(errFolderMissing, folder)
 	} else if cfg.Paused {
 		l.Debugf("%v for paused folder (ID %q) sent from device %q.", op, folder, deviceID)
-		return
+		return errors.Wrap(ErrFolderPaused, folder)
 	}
 
 	m.fmut.RLock()
@@ -1062,17 +1071,12 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 	m.fmut.RUnlock()
 
 	if !existing {
-		l.Warnf("%v for nonexistent folder %q", op, folder)
-		panic("handling index for nonexistent folder")
+		l.Infof("%v for nonexistent folder %q", op, folder)
+		return errors.Wrap(errFolderMissing, folder)
 	}
 
 	if running {
 		defer runner.SchedulePull()
-	} else if update {
-		// Runner may legitimately not be set if this is the "cleanup" Index
-		// message at startup.
-		l.Warnf("%v for not running folder %q", op, folder)
-		panic("handling index for not running folder")
 	}
 
 	m.pmut.RLock()
@@ -1096,9 +1100,11 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 		"items":   len(fs),
 		"version": files.Sequence(deviceID),
 	})
+
+	return nil
 }
 
-func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterConfig) {
+func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterConfig) error {
 	// Check the peer device's announced folders against our own. Emits events
 	// for folders that we don't expect (unknown or not shared).
 	// Also, collect a list of folders we do share, and if he's interested in
@@ -1296,6 +1302,8 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			l.Warnln("Failed to save config", err)
 		}
 	}
+
+	return nil
 }
 
 // handleIntroductions handles adding devices/folders that are shared by an introducer device
@@ -1952,13 +1960,13 @@ func (m *model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	m.deviceWasSeen(deviceID)
 }
 
-func (m *model) DownloadProgress(device protocol.DeviceID, folder string, updates []protocol.FileDownloadProgressUpdate) {
+func (m *model) DownloadProgress(device protocol.DeviceID, folder string, updates []protocol.FileDownloadProgressUpdate) error {
 	m.fmut.RLock()
 	cfg, ok := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 
 	if !ok || cfg.DisableTempIndexes || !cfg.SharedWith(device) {
-		return
+		return nil
 	}
 
 	m.pmut.RLock()
@@ -1972,6 +1980,8 @@ func (m *model) DownloadProgress(device protocol.DeviceID, folder string, update
 		"folder": folder,
 		"state":  state,
 	})
+
+	return nil
 }
 
 func (m *model) deviceWasSeen(deviceID protocol.DeviceID) {
