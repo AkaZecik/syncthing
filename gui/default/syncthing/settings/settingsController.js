@@ -1,14 +1,16 @@
 angular.module('syncthing.core')
-    .run(function () {
-
-    })
     .controller('SettingsController', ['$scope', '$http', function ($scope, $http) {
+        $scope.tmpOptions = {};
+        $scope.tmpGui = {};
+
         $scope.discardChangedSettings = function () {
             $("#discard-changes-confirmation").modal("hide");
             $("#settings").modal("hide");
         };
 
         $scope.closeSettings = function () {
+            console.log($scope.tmpOptions);
+
             if ($scope.settingsModified()) {
                 $("#discard-changes-confirmation").modal("show");
             } else {
@@ -16,22 +18,25 @@ angular.module('syncthing.core')
             }
         };
 
-        $scope.editSettings = function () {
+        $scope.initializeTmpSettings = function () {
             // Make a working copy
             $scope.tmpOptions = angular.copy($scope.config.options);
             $scope.tmpOptions.deviceName = $scope.thisDevice().name;
             $scope.tmpOptions.upgrades = "none";
+
             if ($scope.tmpOptions.autoUpgradeIntervalH > 0) {
                 $scope.tmpOptions.upgrades = "stable";
             }
+
             if ($scope.tmpOptions.upgradeToPreReleases) {
                 $scope.tmpOptions.upgrades = "candidate";
             }
+
             $scope.tmpGUI = angular.copy($scope.config.gui);
             $scope.tmpRemoteIgnoredDevices = angular.copy($scope.config.remoteIgnoredDevices);
             $scope.tmpDevices = angular.copy($scope.config.devices);
-            $('#settings').modal("show");
-            $("#settings a[href='#settings-general']").tab("show");
+            // $('#settings').modal("show");
+            // $("#settings a[href='#settings-general']").tab("show");
         };
 
         $scope.saveConfig = function (cb) {
@@ -54,11 +59,13 @@ angular.module('syncthing.core')
 
         $scope.urVersions = function () {
             var result = [];
+
             if ($scope.system) {
                 for (var i = $scope.system.urVersionMax; i >= 2; i--) {
                     result.push("" + i);
                 }
             }
+
             return result;
         };
 
@@ -68,12 +75,15 @@ angular.module('syncthing.core')
             var options = angular.copy($scope.config.options);
             options.deviceName = $scope.thisDevice().name;
             options.upgrades = "none";
+
             if (options.autoUpgradeIntervalH > 0) {
                 options.upgrades = "stable";
             }
+
             if (options.upgradeToPreReleases) {
                 options.upgrades = "candidate";
             }
+
             var optionsEqual = angular.equals(options, $scope.tmpOptions);
             var guiEquals = angular.equals($scope.config.gui, $scope.tmpGUI);
             var ignoredDevicesEquals = angular.equals($scope.config.remoteIgnoredDevices, $scope.tmpRemoteIgnoredDevices);
@@ -142,5 +152,30 @@ angular.module('syncthing.core')
             $scope.config = $scope.advancedConfig;
             $scope.saveConfig();
             $('#advanced').modal("hide");
+        };
+
+        $scope.ignoredFoldersCountTmpConfig = function () {
+            var count = 0;
+            ($scope.tmpDevices || []).forEach(function (deviceCfg) {
+                count += deviceCfg.ignoredFolders.length;
+            });
+            return count;
+        };
+
+        $scope.unignoreDeviceFromTemporaryConfig = function (ignoredDevice) {
+            $scope.tmpRemoteIgnoredDevices = $scope.tmpRemoteIgnoredDevices.filter(function (existingIgnoredDevice) {
+                return ignoredDevice.deviceID !== existingIgnoredDevice.deviceID;
+            });
+        };
+
+        $scope.unignoreFolderFromTemporaryConfig = function (device, ignoredFolderID) {
+            for (var i = 0; i < $scope.tmpDevices.length; i++) {
+                if ($scope.tmpDevices[i].deviceID == device) {
+                    $scope.tmpDevices[i].ignoredFolders = $scope.tmpDevices[i].ignoredFolders.filter(function (existingIgnoredFolder) {
+                        return existingIgnoredFolder.id !== ignoredFolderID;
+                    });
+                    return;
+                }
+            }
         };
     }]);

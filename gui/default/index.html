@@ -67,7 +67,7 @@
             <span class="caret"></span>
           </a>
           <ul class="dropdown-menu">
-            <li><a href="" ng-click="editSettings()"><span class="fas fa-fw fa-cog"></span>&nbsp;<span translate>Settings</span></a></li>
+            <li><a href="" data-toggle="modal" data-target="#settings"><span class="fas fa-fw fa-cog"></span>&nbsp;<span translate>Settings</span></a></li>
             <li><a href="" data-toggle="modal" data-target="#idqr" ng-click="currentDevice=thisDevice()"><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
             <li class="divider" aria-hidden="true"></li>
             <li><a href="" ng-click="shutdown()"><span class="fas fa-fw fa-power-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
@@ -113,7 +113,7 @@
             </p>
           </div>
           <div class="panel-footer">
-            <button type="button" class="btn btn-sm btn-default pull-right" ng-click="editSettings()">
+            <button type="button" class="btn btn-sm btn-default pull-right" data-toggle="modal" data-target="#settings">
               <span class="fas fa-cog"></span>&nbsp;<span translate>Settings</span>
             </button>
             <div class="clearfix"></div>
@@ -886,6 +886,7 @@
   <script type="text/javascript" src="syncthing/core/uncamelFilter.js"></script>
   <script type="text/javascript" src="syncthing/core/uniqueFolderDirective.js"></script>
   <script type="text/javascript" src="syncthing/core/validDeviceidDirective.js"></script>
+  <script type="text/javascript" src="syncthing/settings/settingsController.js"></script>
   <script type="text/javascript" src="assets/lang/valid-langs.js"></script>
   <script type="text/javascript" src="assets/lang/prettyprint.js"></script>
   <script type="text/javascript" src="meta.js"></script>

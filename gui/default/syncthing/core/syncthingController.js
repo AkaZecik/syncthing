@@ -1406,31 +1406,6 @@ angular.module('syncthing.core')
             $scope.saveConfig();
         };
 
-        $scope.unignoreDeviceFromTemporaryConfig = function (ignoredDevice) {
-            $scope.tmpRemoteIgnoredDevices = $scope.tmpRemoteIgnoredDevices.filter(function (existingIgnoredDevice) {
-                return ignoredDevice.deviceID !== existingIgnoredDevice.deviceID;
-            });
-        };
-
-        $scope.ignoredFoldersCountTmpConfig = function () {
-            var count = 0;
-            ($scope.tmpDevices || []).forEach(function (deviceCfg) {
-                count += deviceCfg.ignoredFolders.length;
-            });
-            return count;
-        };
-
-        $scope.unignoreFolderFromTemporaryConfig = function (device, ignoredFolderID) {
-            for (var i = 0; i < $scope.tmpDevices.length; i++) {
-                if ($scope.tmpDevices[i].deviceID == device) {
-                    $scope.tmpDevices[i].ignoredFolders = $scope.tmpDevices[i].ignoredFolders.filter(function (existingIgnoredFolder) {
-                        return existingIgnoredFolder.id !== ignoredFolderID;
-                    });
-                    return;
-                }
-            }
-        };
-
         $scope.otherDevices = function () {
             return $scope.devices.filter(function (n) {
                 return n.deviceID !== $scope.myID;
