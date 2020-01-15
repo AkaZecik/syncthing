@@ -33,7 +33,7 @@ func MaximizeOpenFileLimit() (int, error) {
 		return int(lim.Cur), nil
 	}
 
-	// macOS doesn't like a soft limit greater then OPEN_MAX
+	// macOS doesn't like a soft limit greater than OPEN_MAX
 	// See also: man setrlimit
 	if runtime.GOOS == "darwin" && lim.Max > darwinOpenMax {
 		lim.Cur = darwinOpenMax

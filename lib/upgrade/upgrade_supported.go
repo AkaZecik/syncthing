@@ -31,7 +31,7 @@ import (
 	"github.com/syncthing/syncthing/lib/signature"
 )
 
-const DisabledByCompilation = false
+const DisabledByCompilation = true
 
 const (
 	// Current binary size hovers around 10 MB. We give it some room to grow

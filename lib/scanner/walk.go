@@ -43,6 +43,10 @@ type Config struct {
 	// detected. Scanned files will get zero permission bits and the
 	// NoPermissionBits flag set.
 	IgnorePerms bool
+	// If IgnoreAttributes is true, changes to permission bits will not be
+	// detected. Scanned files will get zero attributes bits and the
+	// NoAttributesBits flag set.
+	IgnoreAttributes bool
 	// When AutoNormalize is set, file names that are in UTF8 but incorrect
 	// normalization form will be corrected.
 	AutoNormalize bool
@@ -355,7 +359,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	f.RawBlockSize = int32(blockSize)
 
 	if hasCurFile {
-		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, true, w.LocalFlags) {
+		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, w.IgnoreAttributes, true, w.LocalFlags) {
 			return nil
 		}
 		if curFile.ShouldConflict() {
@@ -388,7 +392,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 	f.NoPermissions = w.IgnorePerms
 
 	if hasCurFile {
-		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, true, w.LocalFlags) {
+		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, w.IgnoreAttributes, true, w.LocalFlags) {
 			return nil
 		}
 		if curFile.ShouldConflict() {
@@ -432,7 +436,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 	f = w.updateFileInfo(f, curFile)
 
 	if hasCurFile {
-		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, true, w.LocalFlags) {
+		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, w.IgnoreAttributes, true, w.LocalFlags) {
 			return nil
 		}
 		if curFile.ShouldConflict() {
@@ -597,6 +601,7 @@ func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 }
 
 func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (protocol.FileInfo, error) {
+	// TODO: check whether the Lstat returned information about the file being hidden or the file starts with '.'
 	f := protocol.FileInfo{Name: name}
 	if fi.IsSymlink() {
 		f.Type = protocol.FileInfoTypeSymlink
@@ -608,6 +613,11 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (prot
 		f.NoPermissions = true // Symlinks don't have permissions of their own
 		return f, nil
 	}
+	attrs, err := filesystem.GetAttributes(name)
+	if err != nil {
+		return protocol.FileInfo{}, err
+	}
+	f.Attributes = f.Attributes &^ protocol.FileAttributeBitMask & attrs
 	f.Permissions = uint32(fi.Mode() & fs.ModePerm)
 	f.ModifiedS = fi.ModTime().Unix()
 	f.ModifiedNs = int32(fi.ModTime().Nanosecond())

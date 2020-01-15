@@ -87,6 +87,10 @@ func (f FileInfo) HasPermissionBits() bool {
 	return !f.NoPermissions
 }
 
+func (f FileInfo) HasAttributeBits() bool {
+	return !f.NoAttributes
+}
+
 func (f FileInfo) FileSize() int64 {
 	if f.Deleted {
 		return 0
@@ -136,6 +140,10 @@ func (f FileInfo) FileModifiedBy() ShortID {
 	return f.ModifiedBy
 }
 
+func (f FileInfo) IsHidden() bool {
+	return f.Attributes & FileAttributeHidden != 0
+}
+
 // WinsConflict returns true if "f" is the one to choose when it is in
 // conflict with "other".
 func (f FileInfo) WinsConflict(other FileInfo) bool {
@@ -171,11 +179,11 @@ func (f FileInfo) IsEmpty() bool {
 }
 
 func (f FileInfo) IsEquivalent(other FileInfo, modTimeWindow time.Duration) bool {
-	return f.isEquivalent(other, modTimeWindow, false, false, 0)
+	return f.isEquivalent(other, modTimeWindow, false, false,false, 0)
 }
 
-func (f FileInfo) IsEquivalentOptional(other FileInfo, modTimeWindow time.Duration, ignorePerms bool, ignoreBlocks bool, ignoreFlags uint32) bool {
-	return f.isEquivalent(other, modTimeWindow, ignorePerms, ignoreBlocks, ignoreFlags)
+func (f FileInfo) IsEquivalentOptional(other FileInfo, modTimeWindow time.Duration, ignorePerms bool, ignoreAttributes, ignoreBlocks bool, ignoreFlags uint32) bool {
+	return f.isEquivalent(other, modTimeWindow, ignorePerms, ignoreAttributes, ignoreBlocks, ignoreFlags)
 }
 
 // isEquivalent checks that the two file infos represent the same actual file content,
@@ -186,6 +194,7 @@ func (f FileInfo) IsEquivalentOptional(other FileInfo, modTimeWindow time.Durati
 //  - deleted flag
 //  - invalid flag
 //  - permissions, unless they are ignored
+//  - attributes, unless they are ignored
 // A file is not "equivalent", if it has different
 //  - modification time (difference bigger than modTimeWindow)
 //  - size
@@ -193,7 +202,7 @@ func (f FileInfo) IsEquivalentOptional(other FileInfo, modTimeWindow time.Durati
 // A symlink is not "equivalent", if it has different
 //  - target
 // A directory does not have anything specific to check.
-func (f FileInfo) isEquivalent(other FileInfo, modTimeWindow time.Duration, ignorePerms bool, ignoreBlocks bool, ignoreFlags uint32) bool {
+func (f FileInfo) isEquivalent(other FileInfo, modTimeWindow time.Duration, ignorePerms bool, ignoreAttributes bool, ignoreBlocks bool, ignoreFlags uint32) bool {
 	if f.MustRescan() || other.MustRescan() {
 		// These are per definition not equivalent because they don't
 		// represent a valid state, even if both happen to have the
@@ -210,6 +219,10 @@ func (f FileInfo) isEquivalent(other FileInfo, modTimeWindow time.Duration, igno
 	}
 
 	if !ignorePerms && !f.NoPermissions && !other.NoPermissions && !PermsEqual(f.Permissions, other.Permissions) {
+		return false
+	}
+
+	if !ignoreAttributes && !AttributesEqual(f.Attributes, other.Attributes) {
 		return false
 	}
 
@@ -246,6 +259,10 @@ func PermsEqual(a, b uint32) bool {
 		// All bits count
 		return a&0777 == b&0777
 	}
+}
+
+func AttributesEqual(a, b uint32) bool {
+	return (a & FileAttributeBitMask) == (b & FileAttributeBitMask)
 }
 
 // BlocksEqual returns whether two slices of blocks are exactly the same hash
