@@ -87,10 +87,6 @@ func (f FileInfo) HasPermissionBits() bool {
 	return !f.NoPermissions
 }
 
-func (f FileInfo) HasAttributeBits() bool {
-	return !f.NoAttributes
-}
-
 func (f FileInfo) FileSize() int64 {
 	if f.Deleted {
 		return 0
@@ -179,11 +175,11 @@ func (f FileInfo) IsEmpty() bool {
 }
 
 func (f FileInfo) IsEquivalent(other FileInfo, modTimeWindow time.Duration) bool {
-	return f.isEquivalent(other, modTimeWindow, false, false,false, 0)
+	return f.isEquivalent(other, modTimeWindow, false,false, 0)
 }
 
-func (f FileInfo) IsEquivalentOptional(other FileInfo, modTimeWindow time.Duration, ignorePerms bool, ignoreAttributes, ignoreBlocks bool, ignoreFlags uint32) bool {
-	return f.isEquivalent(other, modTimeWindow, ignorePerms, ignoreAttributes, ignoreBlocks, ignoreFlags)
+func (f FileInfo) IsEquivalentOptional(other FileInfo, modTimeWindow time.Duration, ignorePerms bool, ignoreBlocks bool, ignoreFlags uint32) bool {
+	return f.isEquivalent(other, modTimeWindow, ignorePerms, ignoreBlocks, ignoreFlags)
 }
 
 // isEquivalent checks that the two file infos represent the same actual file content,
@@ -202,7 +198,7 @@ func (f FileInfo) IsEquivalentOptional(other FileInfo, modTimeWindow time.Durati
 // A symlink is not "equivalent", if it has different
 //  - target
 // A directory does not have anything specific to check.
-func (f FileInfo) isEquivalent(other FileInfo, modTimeWindow time.Duration, ignorePerms bool, ignoreAttributes bool, ignoreBlocks bool, ignoreFlags uint32) bool {
+func (f FileInfo) isEquivalent(other FileInfo, modTimeWindow time.Duration, ignorePerms bool, ignoreBlocks bool, ignoreFlags uint32) bool {
 	if f.MustRescan() || other.MustRescan() {
 		// These are per definition not equivalent because they don't
 		// represent a valid state, even if both happen to have the
@@ -222,7 +218,7 @@ func (f FileInfo) isEquivalent(other FileInfo, modTimeWindow time.Duration, igno
 		return false
 	}
 
-	if !ignoreAttributes && !AttributesEqual(f.Attributes, other.Attributes) {
+	if !AttributesEqual(f.Attributes, other.Attributes) {
 		return false
 	}
 

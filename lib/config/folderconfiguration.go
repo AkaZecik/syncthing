@@ -39,7 +39,6 @@ type FolderConfiguration struct {
 	FSWatcherEnabled        bool                        `xml:"fsWatcherEnabled,attr" json:"fsWatcherEnabled" default:"true"`
 	FSWatcherDelayS         int                         `xml:"fsWatcherDelayS,attr" json:"fsWatcherDelayS" default:"10"`
 	IgnorePerms             bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
-	IgnoreAttributes        bool                        `xml:"ignoreAttributes,attr" json:"ignoreAttributes:"`
 	AutoNormalize           bool                        `xml:"autoNormalize,attr" json:"autoNormalize" default:"true"`
 	MinDiskFree             Size                        `xml:"minDiskFree" json:"minDiskFree" default:"1%"`
 	Versioning              VersioningConfiguration     `xml:"versioning" json:"versioning"`

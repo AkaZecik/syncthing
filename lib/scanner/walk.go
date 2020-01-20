@@ -359,7 +359,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	f.RawBlockSize = int32(blockSize)
 
 	if hasCurFile {
-		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, w.IgnoreAttributes, true, w.LocalFlags) {
+		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, true, w.LocalFlags) {
 			return nil
 		}
 		if curFile.ShouldConflict() {
@@ -392,7 +392,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 	f.NoPermissions = w.IgnorePerms
 
 	if hasCurFile {
-		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, w.IgnoreAttributes, true, w.LocalFlags) {
+		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, true, w.LocalFlags) {
 			return nil
 		}
 		if curFile.ShouldConflict() {
@@ -436,7 +436,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 	f = w.updateFileInfo(f, curFile)
 
 	if hasCurFile {
-		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, w.IgnoreAttributes, true, w.LocalFlags) {
+		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, true, w.LocalFlags) {
 			return nil
 		}
 		if curFile.ShouldConflict() {

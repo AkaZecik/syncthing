@@ -59,7 +59,7 @@ func (f *BasicFilesystem) GetAttributes(name string) (uint32, error) {
 	if name[0:1] == "." {
 		f_attrs &= protocol.FileAttributeHidden
 	}
-	return f_attrs
+	return f_attrs, nil
 }
 
 func (f *BasicFilesystem) SetAttributes(name string, f_attrs uint32, mask uint32) error {

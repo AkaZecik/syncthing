@@ -46,7 +46,6 @@ message FileInfoTruncated {
     bool deleted        = 6;
     bool invalid        = 7 [(gogoproto.customname) = "RawInvalid"];
     bool no_permissions = 8;
-    bool no_attributes  = 19;
 }
 
 // For each folder and device we keep one of these to track the current
